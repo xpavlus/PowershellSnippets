@@ -1,0 +1,45 @@
+
+Function WriteLogDebug {Param ([string] $msg) Write-Host "[DEBUG] > $msg"}
+Function WriteLogError {Param ([string] $msg) Write-Host "[ERROR] > $msg"}
+
+function FileRotation {
+	param (
+		[string] $File,
+		[int] $Count = 10
+	)
+	
+	$ParentDir = Split-Path -Path $File -Parent
+	$CleanName = [System.IO.Path]::GetFileNameWithoutExtension($file)
+	$Ext = [System.IO.Path]::GetExtension($File)
+	
+	$DatePattern = ""
+	"yyyy_MM_dd", "HH:mm", "ss" | foreach {
+		if ($DatePatter) {
+			$DatePatter = "$($DatePatter)_$($_)"
+		}
+		else {
+			$DatePatter = $_
+		}
+		$FileNew = "$ParentDir\$($CleanName)_$(Get-Date -Format $DatePattern)$Ext"
+		if (!(Test-Path $FileNew)) {
+			WriteLogDebug "Ротация логов, переименовываем $File в $FileNew"
+			try {
+				Move-Item $File $FileNew -ErrorAction Stop
+			}
+			catch {
+				WriteLogError "Ошибка переименования файла: $($Error[0])"
+			}
+			Break
+		}
+	}
+
+	Get-ChildItem -Path "$ParentDir\$($CleanName)_*" | Sort-Object -Property LastWriteTime | Select-Object -Skip $Count | foreach {
+		WriteLogDebug "Удаляем старый лог: $($_.FullName)"
+		try {
+			Remove-Item -Path $_.FullName -Confirm:$false -ErrorAction Stop
+		}
+		catch {
+			WriteLogError "Ошибка удаления файла: $($Error[0])"
+		}
+	}
+}
